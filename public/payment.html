@@ -1,0 +1,223 @@
+<!-- public/payment.html -->
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Thanh Toán - Fashion Shop</title>
+  <link rel="stylesheet" href="/css/style.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
+</head>
+<body>
+  <header>
+    <nav id="navbar">
+      <div class="logo-container">
+        <img src="/images/logo.png" alt="Fashion Shop Logo">
+        <span>Fashion Shop</span>
+      </div>
+      <div class="nav-links">
+        <a href="/">Trang Chủ</a>
+        <a href="/products.html">Sản Phẩm</a>
+        <a href="/categories.html">Thể Loại</a>
+        <a href="/cart.html">Giỏ Hàng</a>
+        <a href="/orders.html">Đơn Hàng</a>
+        <a href="/login.html" id="loginLink">Đăng Nhập</a>
+        <a href="/register.html" id="registerLink">Đăng Ký</a>
+        <div id="userInfo" style="display: none;">
+          <span id="usernameDisplay"></span>
+          <button class="action-btn" onclick="logout()">Đăng Xuất</button>
+        </div>
+      </div>
+    </nav>
+  </header>
+
+  <main class="container">
+    <h2>Thanh Toán</h2>
+    <div class="payment-container">
+      <h3>Tóm tắt đơn hàng</h3>
+      <div class="payment-summary" id="paymentSummary">
+        <h4>Danh sách sản phẩm</h4>
+        <div id="paymentItems"></div>
+        <div class="payment-summary-item">
+          <span>Tổng cộng:</span>
+          <span id="totalPrice">0₫</span>
+        </div>
+        <div class="payment-summary-item">
+          <span>Địa chỉ giao hàng:</span>
+          <span id="shippingAddressDisplay"></span>
+        </div>
+      </div>
+
+      <div class="payment-form">
+        <h3>Phương thức thanh toán</h3>
+        <form id="paymentForm">
+          <div>
+            <label for="paymentMethod">Phương thức thanh toán:</label>
+            <select id="paymentMethod" name="method" required>
+              <option value="">Chọn phương thức</option>
+              <option value="COD">Thanh toán khi nhận hàng (COD)</option>
+              <option value="Credit Card">Thẻ tín dụng</option>
+              <option value="Bank Transfer">Chuyển khoản ngân hàng</option>
+            </select>
+          </div>
+          <input type="hidden" id="orderId" name="orderId">
+          <input type="hidden" id="total" name="total">
+          <button type="submit">Xác Nhận Thanh Toán</button>
+        </form>
+        <div id="formMsg" class="text-center"></div>
+        <div class="loading" id="formLoading"></div>
+      </div>
+    </div>
+  </main>
+
+  <footer>
+    <p>© 2025 - Fashion Shop</p>
+  </footer>
+
+  <script src="/js/main.js"></script>
+  <script>
+    // Kiểm tra trạng thái đăng nhập khi tải trang
+    document.addEventListener('DOMContentLoaded', async () => {
+      try {
+        const response = await fetch('/auth/me', {
+          method: 'GET',
+          credentials: 'include'
+        });
+        const data = await response.json();
+
+        const loginLink = document.getElementById('loginLink');
+        const registerLink = document.getElementById('registerLink');
+        const userInfo = document.getElementById('userInfo');
+        const usernameDisplay = document.getElementById('usernameDisplay');
+
+        if (data.success) {
+          loginLink.style.display = 'none';
+          registerLink.style.display = 'none';
+          userInfo.style.display = 'flex';
+          usernameDisplay.textContent = `Chào, ${data.data.username}`;
+          loadOrderForPayment();
+        } else {
+          showToast('Vui lòng đăng nhập để thanh toán!', 'error');
+          setTimeout(() => {
+            window.location.href = '/login.html';
+          }, 1500);
+        }
+      } catch (error) {
+        console.error('Error checking auth:', error);
+        showToast('Lỗi khi kiểm tra đăng nhập!', 'error');
+      }
+    });
+
+    // Lấy orderId từ query parameter
+    const urlParams = new URLSearchParams(window.location.search);
+    const orderId = urlParams.get('orderId');
+
+    // Tải thông tin đơn hàng để hiển thị tóm tắt
+    async function loadOrderForPayment() {
+      if (!orderId) {
+        showToast('Không tìm thấy đơn hàng!', 'error');
+        setTimeout(() => {
+          window.location.href = '/orders.html';
+        }, 1500);
+        return;
+      }
+
+      try {
+        const response = await fetch(`/orders/${orderId}`, {
+          method: 'GET',
+          credentials: 'include'
+        });
+        const data = await response.json();
+
+        const paymentItems = document.getElementById('paymentItems');
+        const totalPrice = document.getElementById('totalPrice');
+        const shippingAddressDisplay = document.getElementById('shippingAddressDisplay');
+        const orderIdInput = document.getElementById('orderId');
+        const totalInput = document.getElementById('total');
+
+        if (data.success && data.data) {
+          const order = data.data;
+          if (order.status !== 'pending') {
+            showToast('Đơn hàng này đã được thanh toán hoặc đang xử lý!', 'error');
+            setTimeout(() => {
+              window.location.href = '/orders.html';
+            }, 1500);
+            return;
+          }
+
+          paymentItems.innerHTML = order.items.map(item => `
+            <div class="payment-summary-item">
+              <span>${item.product.productName} (x${item.quantity})</span>
+              <span>${item.product.price * item.quantity}₫</span>
+            </div>
+          `).join('');
+          totalPrice.textContent = `${order.total}₫`;
+          shippingAddressDisplay.textContent = order.shippingAddress;
+          orderIdInput.value = order._id;
+          totalInput.value = order.total;
+        } else {
+          paymentItems.innerHTML = '<p>Không tìm thấy đơn hàng!</p>';
+          totalPrice.textContent = '0₫';
+          shippingAddressDisplay.textContent = 'N/A';
+        }
+      } catch (error) {
+        console.error('Error loading order:', error);
+        showToast('Lỗi khi tải thông tin đơn hàng!', 'error');
+      }
+    }
+
+    // Xử lý form thanh toán
+    document.getElementById('paymentForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const formData = new FormData(e.target);
+      const orderId = formData.get('orderId');
+      const total = formData.get('total');
+      const method = formData.get('method');
+      const msg = document.getElementById('formMsg');
+      const loading = document.getElementById('formLoading');
+
+      msg.innerHTML = '';
+      loading.style.display = 'block';
+
+      try {
+        const response = await fetch('/payment/create', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ orderId, amount: parseFloat(total), method })
+        });
+        const data = await response.json();
+
+        loading.style.display = 'none';
+        if (data.success) {
+          msg.innerHTML = `<div class="alert alert-success">Thanh toán thành công!</div>`;
+          setTimeout(() => {
+            window.location.href = '/orders.html';
+          }, 1500);
+        } else {
+          msg.innerHTML = `<div class="alert alert-danger">Lỗi khi thanh toán: ${data.message}</div>`;
+        }
+      } catch (error) {
+        console.error('Error during payment:', error);
+        loading.style.display = 'none';
+        msg.innerHTML = `<div class="alert alert-danger">Lỗi khi thanh toán!</div>`;
+      }
+    });
+
+    // Hàm đăng xuất
+    async function logout() {
+      try {
+        await fetch('/auth/logout', {
+          method: 'POST',
+          credentials: 'include'
+        });
+        document.cookie = 'token=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/';
+        window.location.href = "/";
+      } catch (error) {
+        console.error('Error logging out:', error);
+        window.location.href = "/";
+      }
+    }
+  </script>
+</body>
+</html>

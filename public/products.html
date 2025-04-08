@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sản Phẩm - Fashion Shop</title>
+  <link rel="stylesheet" href="/css/style.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
+</head>
+<body>
+  <header>
+    <nav id="navbar">
+      <div class="logo-container">
+        <img src="/images/logo.png" alt="Fashion Shop Logo">
+        <span>Fashion Shop</span>
+      </div>
+      <div class="nav-links">
+        <a href="/">Trang Chủ</a>
+        <a href="/products.html">Sản Phẩm</a>
+        <a href="/categories.html">Thể Loại</a>
+        <a href="/cart.html">Giỏ Hàng</a>
+        <a href="/orders.html">Đơn Hàng</a>
+        <a href="/login.html" id="loginLink">Đăng Nhập</a>
+        <a href="/register.html" id="registerLink">Đăng Ký</a>
+        <div id="userInfo" style="display: none;">
+          <span id="usernameDisplay"></span>
+          <button class="action-btn" onclick="logout()">Đăng Xuất</button>
+        </div>
+      </div>
+    </nav>
+  </header>
+
+  <main class="container">
+    <h2>Danh sách sản phẩm</h2>
+    <button class="btn" onclick="openModal('addProduct')">Thêm Sản Phẩm</button>
+    <div id="product-list" class="grid"></div>
+  </main>
+
+  <!-- Modal để thêm/sửa sản phẩm -->
+  <div id="modal" class="modal">
+    <div class="modal-content">
+      <span class="close" onclick="closeModal()">×</span>
+      <div id="modal-body"></div>
+    </div>
+  </div>
+
+  <footer>
+    <p>© 2025 - Fashion Shop</p>
+  </footer>
+
+  <script src="/js/main.js"></script>
+  <script>
+    // Kiểm tra trạng thái đăng nhập khi tải trang
+    document.addEventListener('DOMContentLoaded', async () => {
+      try {
+        const response = await fetch('/auth/me', {
+          method: 'GET',
+          credentials: 'include',
+        });
+        const data = await response.json();
+
+        const loginLink = document.getElementById('loginLink');
+        const registerLink = document.getElementById('registerLink');
+        const userInfo = document.getElementById('userInfo');
+        const usernameDisplay = document.getElementById('usernameDisplay');
+
+        if (data.success) {
+          loginLink.style.display = 'none';
+          registerLink.style.display = 'none';
+          userInfo.style.display = 'flex';
+          usernameDisplay.textContent = `Chào, ${data.data.username}`;
+          window.isLoggedIn = true;
+          window.userRole = data.data.role;
+        } else {
+          window.isLoggedIn = false;
+          window.userRole = null;
+        }
+        // Gọi hàm loadProducts từ main.js
+        loadProducts();
+      } catch (error) {
+        console.error('Error checking auth:', error);
+        window.isLoggedIn = false;
+        window.userRole = null;
+        loadProducts();
+      }
+    });
+
+    // Hàm đăng xuất
+    async function logout() {
+      try {
+        await fetch('/auth/logout', {
+          method: 'POST',
+          credentials: 'include',
+        });
+        document.cookie = 'token=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/';
+        window.location.href = '/';
+      } catch (error) {
+        console.error('Error logging out:', error);
+        window.location.href = '/';
+      }
+    }
+  </script>
+</body>
+</html>

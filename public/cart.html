@@ -1,0 +1,204 @@
+<!-- public/cart.html -->
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Giỏ Hàng - Fashion Shop</title>
+  <link rel="stylesheet" href="/css/style.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
+</head>
+<body>
+  <header>
+    <nav id="navbar">
+      <div class="logo-container">
+        <img src="/images/logo.png" alt="Fashion Shop Logo">
+        <span>Fashion Shop</span>
+      </div>
+      <div class="nav-links">
+        <a href="/">Trang Chủ</a>
+        <a href="/products.html">Sản Phẩm</a>
+        <a href="/categories.html">Thể Loại</a>
+        <a href="/cart.html">Giỏ Hàng</a>
+        <a href="/orders.html">Đơn Hàng</a>
+        <a href="/login.html" id="loginLink">Đăng Nhập</a>
+        <a href="/register.html" id="registerLink">Đăng Ký</a>
+        <div id="userInfo" style="display: none;">
+          <span id="usernameDisplay"></span>
+          <button class="action-btn" onclick="logout()">Đăng Xuất</button>
+        </div>
+      </div>
+    </nav>
+  </header>
+
+  <main class="container">
+    <h2>Giỏ Hàng</h2>
+    <div id="cart-items" class="grid"></div>
+    <div id="cart-total" class="cart-total">
+      <h3>Tổng cộng: <span id="total-price">0₫</span></h3>
+      <button class="btn" onclick="openCheckoutModal()">Tiến hành thanh toán</button>
+    </div>
+  </main>
+
+  <!-- Modal để nhập địa chỉ giao hàng -->
+  <div id="checkoutModal" class="modal">
+    <div class="modal-content">
+      <span class="close" onclick="closeCheckoutModal()">×</span>
+      <h2>Nhập địa chỉ giao hàng</h2>
+      <form id="checkoutForm">
+        <label for="shippingAddress">Địa chỉ giao hàng:</label>
+        <textarea id="shippingAddress" name="shippingAddress" required placeholder="Nhập địa chỉ giao hàng của bạn"></textarea>
+        <button type="submit">Xác nhận</button>
+      </form>
+      <div id="formMsg" class="text-center"></div>
+      <div class="loading" id="formLoading"></div>
+    </div>
+  </div>
+
+  <footer>
+    <p>© 2025 - Fashion Shop</p>
+  </footer>
+
+  <script src="/js/main.js"></script>
+  <script>
+    // Kiểm tra trạng thái đăng nhập khi tải trang
+    document.addEventListener('DOMContentLoaded', async () => {
+      try {
+        const response = await fetch('/auth/me', {
+          method: 'GET',
+          credentials: 'include'
+        });
+        const data = await response.json();
+
+        const loginLink = document.getElementById('loginLink');
+        const registerLink = document.getElementById('registerLink');
+        const userInfo = document.getElementById('userInfo');
+        const usernameDisplay = document.getElementById('usernameDisplay');
+
+        if (data.success) {
+          loginLink.style.display = 'none';
+          registerLink.style.display = 'none';
+          userInfo.style.display = 'flex';
+          usernameDisplay.textContent = `Chào, ${data.data.username}`;
+          window.isLoggedIn = true;
+          window.userRole = data.data.role;
+          loadCart();
+        } else {
+          window.isLoggedIn = false;
+          window.userRole = null;
+          showToast('Vui lòng đăng nhập để xem giỏ hàng!', 'error');
+          setTimeout(() => {
+            window.location.href = '/login.html';
+          }, 1500);
+        }
+      } catch (error) {
+        console.error('Error checking auth:', error);
+        showToast('Lỗi khi kiểm tra đăng nhập!', 'error');
+      }
+    });
+
+    // Hàm tải giỏ hàng
+    async function loadCart() {
+      try {
+        const response = await fetch('/cart', {
+          method: 'GET',
+          credentials: 'include'
+        });
+        const data = await response.json();
+
+        const cartItems = document.getElementById('cart-items');
+        const totalPrice = document.getElementById('total-price');
+        cartItems.innerHTML = '';
+
+        if (data.success && data.data && data.data.items && data.data.items.length > 0) {
+          data.data.items.forEach(item => {
+            const div = document.createElement('div');
+            div.className = 'card';
+            div.innerHTML = `
+              <img src="${item.product.imgURL || 'https://via.placeholder.com/150'}" alt="${item.product.productName}" />
+              <h4>${item.product.productName}</h4>
+              <p>Giá: ${item.product.price}₫</p>
+              <p>Số lượng: ${item.quantity}</p>
+            `;
+            cartItems.appendChild(div);
+          });
+          totalPrice.textContent = `${data.data.total}₫`;
+        } else {
+          cartItems.innerHTML = '<p>Giỏ hàng trống!</p>';
+          totalPrice.textContent = '0₫';
+        }
+      } catch (error) {
+        console.error('Error loading cart:', error);
+        showToast('Lỗi khi tải giỏ hàng!', 'error');
+      }
+    }
+
+    // Hàm mở modal nhập địa chỉ
+    function openCheckoutModal() {
+      const cartItems = document.getElementById('cart-items');
+      if (cartItems.innerHTML.includes('Giỏ hàng trống')) {
+        showToast('Giỏ hàng trống! Vui lòng thêm sản phẩm trước khi thanh toán.', 'error');
+        return;
+      }
+      document.getElementById('checkoutModal').style.display = 'block';
+    }
+
+    // Hàm đóng modal
+    function closeCheckoutModal() {
+      document.getElementById('checkoutModal').style.display = 'none';
+    }
+
+    // Xử lý form nhập địa chỉ
+    document.getElementById('checkoutForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const formData = new FormData(e.target);
+      const shippingAddress = formData.get('shippingAddress');
+      const msg = document.getElementById('formMsg');
+      const loading = document.getElementById('formLoading');
+
+      msg.innerHTML = '';
+      loading.style.display = 'block';
+
+      try {
+        const response = await fetch('/orders', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ shippingAddress })
+        });
+        const data = await response.json();
+
+        loading.style.display = 'none';
+        if (data.success) {
+          msg.innerHTML = `<div class="alert alert-success">Tạo đơn hàng thành công!</div>`;
+          setTimeout(() => {
+            closeCheckoutModal();
+            window.location.href = '/orders.html';
+          }, 1500);
+        } else {
+          msg.innerHTML = `<div class="alert alert-danger">Lỗi khi tạo đơn hàng: ${data.message}</div>`;
+        }
+      } catch (error) {
+        console.error('Error during checkout:', error);
+        loading.style.display = 'none';
+        msg.innerHTML = `<div class="alert alert-danger">Lỗi khi tạo đơn hàng!</div>`;
+      }
+    });
+
+    // Hàm đăng xuất
+    async function logout() {
+      try {
+        await fetch('/auth/logout', {
+          method: 'POST',
+          credentials: 'include'
+        });
+        document.cookie = 'token=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/';
+        window.location.href = "/";
+      } catch (error) {
+        console.error('Error logging out:', error);
+        window.location.href = "/";
+      }
+    }
+  </script>
+</body>
+</html>

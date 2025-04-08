@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Thể Loại - Fashion Shop</title>
+  <link rel="stylesheet" href="/css/style.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
+</head>
+<body>
+  <header>
+    <nav id="navbar">
+      <div class="logo-container">
+        <img src="/images/logo.png" alt="Fashion Shop Logo">
+        <span>Fashion Shop</span>
+      </div>
+      <div class="nav-links">
+        <a href="/">Trang Chủ</a>
+        <a href="/products.html">Sản Phẩm</a>
+        <a href="/categories.html">Thể Loại</a>
+        <a href="/cart.html">Giỏ Hàng</a>
+        <a href="/orders.html">Đơn Hàng</a>
+        <a href="/login.html" id="loginLink">Đăng Nhập</a>
+        <a href="/register.html" id="registerLink">Đăng Ký</a>
+        <div id="userInfo" style="display: none;">
+          <span id="usernameDisplay"></span>
+          <button class="action-btn" onclick="logout()">Đăng Xuất</button>
+        </div>
+      </div>
+    </nav>
+  </header>
+
+  <main class="container">
+    <h2>Danh sách thể loại</h2>
+    <button class="btn" onclick="openModal('addCategory')">Thêm Danh Mục</button>
+    <ul id="category-list" class="category-grid"></ul>
+  </main>
+
+  <!-- Modal để thêm/sửa danh mục -->
+  <div id="modal" class="modal">
+    <div class="modal-content">
+      <span class="close" onclick="closeModal()">×</span>
+      <div id="modal-body"></div>
+    </div>
+  </div>
+
+  <footer>
+    <p>© 2025 - Fashion Shop</p>
+  </footer>
+
+  <script src="/js/main.js"></script>
+  <script>
+    // Kiểm tra trạng thái đăng nhập khi tải trang
+    document.addEventListener('DOMContentLoaded', async () => {
+      try {
+        const response = await fetch('/auth/me', {
+          method: 'GET',
+          credentials: 'include',
+        });
+        const data = await response.json();
+
+        const loginLink = document.getElementById('loginLink');
+        const registerLink = document.getElementById('registerLink');
+        const userInfo = document.getElementById('userInfo');
+        const usernameDisplay = document.getElementById('usernameDisplay');
+
+        if (data.success) {
+          loginLink.style.display = 'none';
+          registerLink.style.display = 'none';
+          userInfo.style.display = 'flex';
+          usernameDisplay.textContent = `Chào, ${data.data.username}`;
+          window.isLoggedIn = true;
+          window.userRole = data.data.role;
+        } else {
+          window.isLoggedIn = false;
+          window.userRole = null;
+        }
+        // Tải danh sách danh mục
+        loadCategories();
+      } catch (error) {
+        console.error('Error checking auth:', error);
+        window.isLoggedIn = false;
+        window.userRole = null;
+        loadCategories();
+      }
+    });
+
+    // Hàm tải danh sách danh mục
+    async function loadCategories() {
+      try {
+        const response = await fetch('/categories', {
+          method: 'GET',
+          credentials: 'include',
+        });
+        const categories = await response.json();
+        const categoryList = document.getElementById('category-list');
+        categoryList.innerHTML = '';
+        categories.forEach(category => {
+          const li = document.createElement('li');
+          li.className = 'category-item';
+          li.innerHTML = `
+            <div>
+              <h3>${category.categoryName}</h3>
+              <p>${category.description || 'Không có mô tả'}</p>
+              <button class="btn" onclick="openModal('editCategory', '${category._id}')">Sửa</button>
+              <button class="btn btn-danger" onclick="deleteCategory('${category._id}')">Xóa</button>
+            </div>
+          `;
+          categoryList.appendChild(li);
+        });
+      } catch (error) {
+        console.error('Error loading categories:', error);
+      }
+    }
+
+    // Hàm mở modal để thêm/sửa danh mục
+    function openModal(mode, categoryId = null) {
+      const modal = document.getElementById('modal');
+      const modalBody = document.getElementById('modal-body');
+      modal.style.display = 'block';
+
+      if (mode === 'addCategory') {
+        modalBody.innerHTML = `
+          <h2>Thêm Danh Mục</h2>
+          <form id="categoryForm">
+            <label for="categoryName">Tên Danh Mục:</label>
+            <input type="text" id="categoryName" name="categoryName" required />
+            <label for="description">Mô Tả:</label>
+            <textarea id="description" name="description"></textarea>
+            <button type="submit" class="btn">Thêm</button>
+          </form>
+        `;
+
+        const form = document.getElementById('categoryForm');
+        form.addEventListener('submit', async (e) => {
+          e.preventDefault();
+          const categoryData = {
+            categoryName: document.getElementById('categoryName').value,
+            description: document.getElementById('description').value,
+          };
+
+          try {
+            const response = await fetch('/categories', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(categoryData),
+              credentials: 'include',
+            });
+            const result = await response.json();
+            if (result._id) {
+              closeModal();
+              loadCategories();
+            } else {
+              alert('Error adding category: ' + result.message);
+            }
+          } catch (error) {
+            alert('Error adding category: ' + error.message);
+          }
+        });
+      } else if (mode === 'editCategory') {
+        fetch(`/categories/${categoryId}`)
+          .then(res => res.json())
+          .then(result => {
+            const category = result.data;
+            modalBody.innerHTML = `
+              <h2>Sửa Danh Mục</h2>
+              <form id="categoryForm">
+                <label for="categoryName">Tên Danh Mục:</label>
+                <input type="text" id="categoryName" name="categoryName" value="${category.categoryName}" required />
+                <label for="description">Mô Tả:</label>
+                <textarea id="description" name="description">${category.description}</textarea>
+                <button type="submit" class="btn">Cập Nhật</button>
+              </form>
+            `;
+
+            const form = document.getElementById('categoryForm');
+            form.addEventListener('submit', async (e) => {
+              e.preventDefault();
+              const categoryData = {
+                categoryName: document.getElementById('categoryName').value,
+                description: document.getElementById('description').value,
+              };
+
+              try {
+                const response = await fetch(`/categories/${categoryId}`, {
+                  method: 'PUT',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify(categoryData),
+                  credentials: 'include',
+                });
+                const result = await response.json();
+                if (result.success) {
+                  closeModal();
+                  loadCategories();
+                } else {
+                  alert('Error updating category: ' + result.message);
+                }
+              } catch (error) {
+                alert('Error updating category: ' + error.message);
+              }
+            });
+          });
+      }
+    }
+
+    // Hàm đóng modal
+    function closeModal() {
+      const modal = document.getElementById('modal');
+      modal.style.display = 'none';
+    }
+
+    // Hàm xóa danh mục
+    async function deleteCategory(categoryId) {
+      if (confirm('Bạn có chắc muốn xóa danh mục này?')) {
+        try {
+          const response = await fetch(`/categories/${categoryId}`, {
+            method: 'DELETE',
+            credentials: 'include',
+          });
+          const result = await response.json();
+          if (result.success) {
+            loadCategories();
+          } else {
+            alert('Error deleting category: ' + result.message);
+          }
+        } catch (error) {
+          alert('Error deleting category: ' + error.message);
+        }
+      }
+    }
+
+    // Hàm đăng xuất
+    async function logout() {
+      try {
+        await fetch('/auth/logout', {
+          method: 'POST',
+          credentials: 'include',
+        });
+        document.cookie = 'token=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/';
+        window.location.href = '/';
+      } catch (error) {
+        console.error('Error logging out:', error);
+        window.location.href = '/';
+      }
+    }
+  </script>
+</body>
+</html>
