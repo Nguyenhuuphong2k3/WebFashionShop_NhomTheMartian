@@ -6,7 +6,7 @@ let categorySchema = require('../models/categories');
 router.get('/', async function (req, res, next) {
   try {
     let categories = await categorySchema.find({});
-    res.status(200).send(categories);
+    res.status(200).send({ success: true, data: categories });
   } catch (error) {
     res.status(500).send({
       success: false,
@@ -46,7 +46,7 @@ router.post('/', async function (req, res, next) {
       description: body.description || '',
     });
     await newCategory.save();
-    res.status(201).send(newCategory);
+    res.status(201).send({ success: true, data: newCategory });
   } catch (error) {
     res.status(400).send({
       success: false,

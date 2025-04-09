@@ -92,24 +92,29 @@
           method: 'GET',
           credentials: 'include',
         });
-        const categories = await response.json();
+        const data = await response.json();
         const categoryList = document.getElementById('category-list');
         categoryList.innerHTML = '';
-        categories.forEach(category => {
-          const li = document.createElement('li');
-          li.className = 'category-item';
-          li.innerHTML = `
-            <div>
-              <h3>${category.categoryName}</h3>
-              <p>${category.description || 'Không có mô tả'}</p>
-              <button class="btn" onclick="openModal('editCategory', '${category._id}')">Sửa</button>
-              <button class="btn btn-danger" onclick="deleteCategory('${category._id}')">Xóa</button>
-            </div>
-          `;
-          categoryList.appendChild(li);
-        });
+        if (data.success && Array.isArray(data.data)) {
+          data.data.forEach(category => {
+            const li = document.createElement('li');
+            li.className = 'category-item';
+            li.innerHTML = `
+              <div>
+                <h3>${category.categoryName}</h3>
+                <p>${category.description || 'Không có mô tả'}</p>
+                <button class="btn" onclick="openModal('editCategory', '${category._id}')">Sửa</button>
+                <button class="btn btn-danger" onclick="deleteCategory('${category._id}')">Xóa</button>
+              </div>
+            `;
+            categoryList.appendChild(li);
+          });
+        } else {
+          categoryList.innerHTML = '<p>Không có danh mục nào!</p>';
+        }
       } catch (error) {
         console.error('Error loading categories:', error);
+        document.getElementById('category-list').innerHTML = '<p>Lỗi khi tải danh mục!</p>';
       }
     }
 
@@ -147,7 +152,7 @@
               credentials: 'include',
             });
             const result = await response.json();
-            if (result._id) {
+            if (result.success) {
               closeModal();
               loadCategories();
             } else {
@@ -158,47 +163,54 @@
           }
         });
       } else if (mode === 'editCategory') {
-        fetch(`/categories/${categoryId}`)
+        fetch(`/categories/${categoryId}`, { credentials: 'include' })
           .then(res => res.json())
           .then(result => {
-            const category = result.data;
-            modalBody.innerHTML = `
-              <h2>Sửa Danh Mục</h2>
-              <form id="categoryForm">
-                <label for="categoryName">Tên Danh Mục:</label>
-                <input type="text" id="categoryName" name="categoryName" value="${category.categoryName}" required />
-                <label for="description">Mô Tả:</label>
-                <textarea id="description" name="description">${category.description}</textarea>
-                <button type="submit" class="btn">Cập Nhật</button>
-              </form>
-            `;
+            if (result.success) {
+              const category = result.data;
+              modalBody.innerHTML = `
+                <h2>Sửa Danh Mục</h2>
+                <form id="categoryForm">
+                  <label for="categoryName">Tên Danh Mục:</label>
+                  <input type="text" id="categoryName" name="categoryName" value="${category.categoryName}" required />
+                  <label for="description">Mô Tả:</label>
+                  <textarea id="description" name="description">${category.description || ''}</textarea>
+                  <button type="submit" class="btn">Cập Nhật</button>
+                </form>
+              `;
 
-            const form = document.getElementById('categoryForm');
-            form.addEventListener('submit', async (e) => {
-              e.preventDefault();
-              const categoryData = {
-                categoryName: document.getElementById('categoryName').value,
-                description: document.getElementById('description').value,
-              };
+              const form = document.getElementById('categoryForm');
+              form.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const categoryData = {
+                  categoryName: document.getElementById('categoryName').value,
+                  description: document.getElementById('description').value,
+                };
 
-              try {
-                const response = await fetch(`/categories/${categoryId}`, {
-                  method: 'PUT',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify(categoryData),
-                  credentials: 'include',
-                });
-                const result = await response.json();
-                if (result.success) {
-                  closeModal();
-                  loadCategories();
-                } else {
-                  alert('Error updating category: ' + result.message);
+                try {
+                  const response = await fetch(`/categories/${categoryId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(categoryData),
+                    credentials: 'include',
+                  });
+                  const result = await response.json();
+                  if (result.success) {
+                    closeModal();
+                    loadCategories();
+                  } else {
+                    alert('Error updating category: ' + result.message);
+                  }
+                } catch (error) {
+                  alert('Error updating category: ' + error.message);
                 }
-              } catch (error) {
-                alert('Error updating category: ' + error.message);
-              }
-            });
+              });
+            } else {
+              alert('Error loading category: ' + result.message);
+            }
+          })
+          .catch(error => {
+            alert('Error loading category: ' + error.message);
           });
       }
     }
