@@ -16,6 +16,8 @@ require('./models/users');
 require('./models/orders');
 require('./models/payment');
 require('./models/roles');
+require('./models/promotions'); // Thêm model promotions
+require('./models/reviews');
 
 // Sau khi các model đã được import, mới yêu cầu các route
 var indexRouter = require('./routes/index');
@@ -53,7 +55,7 @@ app.use(cors({
     credentials: true // Cho phép gửi cookie
 }));
 
-mongoose.connect("mongodb://localhost:27017/WebFashionShop");
+mongoose.connect("mongodb://localhost:27017/C2");
 mongoose.connection.on("connected", () => {
     console.log("connected");
 });

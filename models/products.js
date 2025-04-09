@@ -1,3 +1,4 @@
+// models/products.js
 let mongoose = require('mongoose');
 
 let productSchema = mongoose.Schema({
@@ -32,7 +33,8 @@ let productSchema = mongoose.Schema({
     isDeleted: {
         type: Boolean,
         default: false
-    }
+    },
+    promotionIDs: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Promotion' }], // Danh sách khuyến mãi áp dụng
 }, {
     timestamps: true
 });

@@ -1,3 +1,4 @@
+/* public/css/style.css */
 /* Reset mặc định */
 * {
   margin: 0;
@@ -177,6 +178,27 @@ nav a:hover {
   box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
 }
 
+/* Nút xem chi tiết sản phẩm */
+.view-details-btn {
+  display: block;
+  width: 100%;
+  padding: 0.75rem;
+  background: #2a5298;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.3s ease;
+  margin-top: 0.5rem;
+}
+
+.view-details-btn:hover {
+  background: #1e3c72;
+  transform: translateY(-2px);
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+}
+
 /* Danh sách danh mục */
 ul#category-list {
   list-style: none;
@@ -218,7 +240,7 @@ ul#category-list li:hover {
   padding: 2rem;
   border-radius: 10px;
   width: 90%;
-  max-width: 500px;
+  max-width: 600px; /* Tăng chiều rộng để chứa nội dung chi tiết sản phẩm */
   max-height: 80vh;
   overflow-y: auto;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
@@ -251,7 +273,9 @@ form label {
   color: #2a5298;
 }
 
-form input, form textarea, form select {
+form input,
+form textarea,
+form select {
   padding: 0.75rem;
   border: 1px solid #ddd;
   border-radius: 5px;
@@ -259,7 +283,9 @@ form input, form textarea, form select {
   transition: border-color 0.3s ease;
 }
 
-form input:focus, form textarea:focus, form select:focus {
+form input:focus,
+form textarea:focus,
+form select:focus {
   border-color: #2a5298;
   outline: none;
   box-shadow: 0 0 5px rgba(42, 82, 152, 0.2);
@@ -381,21 +407,21 @@ footer {
 /* Hiệu ứng động */
 @keyframes fadeIn {
   from {
-      opacity: 0;
+    opacity: 0;
   }
   to {
-      opacity: 1;
+    opacity: 1;
   }
 }
 
 @keyframes slideIn {
   from {
-      transform: translateY(-50px);
-      opacity: 0;
+    transform: translateY(-50px);
+    opacity: 0;
   }
   to {
-      transform: translateY(0);
-      opacity: 1;
+    transform: translateY(0);
+    opacity: 1;
   }
 }
 
@@ -419,7 +445,7 @@ footer {
 
 @keyframes spin {
   to {
-      transform: rotate(360deg);
+    transform: rotate(360deg);
   }
 }
 
@@ -628,6 +654,7 @@ footer {
 .payment-form button:hover {
   background: #218838;
 }
+
 /* Toast Notification */
 .toast {
   position: fixed;
@@ -666,5 +693,230 @@ footer {
   }
   to {
     opacity: 0;
+  }
+}
+
+/* === Thêm style cho chi tiết sản phẩm (bao gồm khuyến mãi và đánh giá) === */
+.product-details {
+  background: white;
+  padding: 2rem;
+  border-radius: 10px;
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+  margin-top: 2rem;
+}
+
+.product-details img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 5px;
+  margin-bottom: 1rem;
+}
+
+.product-details h4 {
+  font-size: 1.5rem;
+  margin-bottom: 1rem;
+  color: #2a5298;
+}
+
+.product-details p {
+  margin-bottom: 0.5rem;
+  color: #666;
+}
+
+/* Style cho phần đánh giá */
+#reviews-list {
+  margin-top: 1.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid #ddd;
+}
+
+.review-item {
+  padding: 1rem;
+  border-bottom: 1px solid #eee;
+}
+
+.review-item p {
+  margin: 0.3rem 0;
+}
+
+.review-item p strong {
+  color: #2a5298;
+}
+
+/* Form thêm đánh giá */
+#reviewForm {
+  margin-top: 1.5rem;
+}
+
+#reviewForm textarea {
+  resize: vertical;
+  min-height: 100px;
+}
+
+#reviewForm input[type="number"] {
+  width: 100px;
+}
+
+/* === Thêm style cho trang quản lý khuyến mãi === */
+.promotions-container {
+  background: white;
+  padding: 2rem;
+  border-radius: 10px;
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+  margin-top: 2rem;
+}
+
+.promotion-item {
+  padding: 1rem;
+  border-bottom: 1px solid #ddd;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.promotion-item h4 {
+  font-size: 1.1rem;
+  color: #2a5298;
+}
+
+.promotion-item p {
+  color: #666;
+}
+
+.promotion-status {
+  padding: 0.5rem 1rem;
+  border-radius: 5px;
+  font-weight: 500;
+}
+
+.promotion-status.active {
+  background: #d4edda;
+  color: #155724;
+}
+
+.promotion-status.inactive {
+  background: #f8d7da;
+  color: #721c24;
+}
+
+/* Style cho danh sách sản phẩm trong khuyến mãi */
+.promotion-products {
+  margin-top: 1rem;
+  padding: 1rem;
+  background: #f9f9f9;
+  border-radius: 5px;
+}
+
+.promotion-products h5 {
+  font-size: 1rem;
+  margin-bottom: 0.5rem;
+  color: #2a5298;
+}
+
+.promotion-products ul {
+  list-style: none;
+  padding: 0;
+}
+
+.promotion-products li {
+  padding: 0.5rem 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid #eee;
+}
+
+.promotion-products li:last-child {
+  border-bottom: none;
+}
+
+/* Nút thêm/xóa sản phẩm vào khuyến mãi */
+.add-product-btn,
+.remove-product-btn {
+  padding: 0.5rem 1rem;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.3s ease;
+}
+
+.add-product-btn {
+  background: #28a745;
+  color: white;
+}
+
+.remove-product-btn {
+  background: #dc3545;
+  color: white;
+}
+
+.add-product-btn:hover,
+.remove-product-btn:hover {
+  opacity: 0.9;
+  transform: translateY(-2px);
+}
+
+/* Form thêm sản phẩm vào khuyến mãi */
+#promotionProductForm select {
+  width: 100%;
+  margin-bottom: 1rem;
+}
+
+/* === Responsive Design === */
+@media (max-width: 768px) {
+  .modal-content {
+    width: 95%;
+    margin: 10% auto;
+  }
+
+  .grid {
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  }
+
+  .nav-links {
+    gap: 1rem;
+  }
+
+  nav a {
+    padding: 0.5rem;
+  }
+
+  .cart-item {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .cart-item img {
+    width: 100%;
+    height: auto;
+  }
+
+  .promotion-item {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .hero h1 {
+    font-size: 1.8rem;
+  }
+
+  .hero p {
+    font-size: 1rem;
+  }
+
+  .btn,
+  .action-btn,
+  .add-to-cart-btn,
+  .view-details-btn {
+    padding: 0.5rem;
+    font-size: 0.9rem;
+  }
+
+  .modal-content {
+    padding: 1rem;
   }
 }

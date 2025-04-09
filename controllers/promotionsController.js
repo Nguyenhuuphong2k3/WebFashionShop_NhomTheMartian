@@ -1,3 +1,5 @@
+// controllers/promotionsController.js
+const mongoose = require('mongoose');
 const Promotion = require('../models/promotions');
 const Product = require('../models/products');
 
@@ -8,19 +10,19 @@ const createPromotion = async (req, res) => {
 
     // Kiểm tra dữ liệu đầu vào
     if (!code || !discount || !startDate || !endDate) {
-      return res.status(400).json({ error: 'Missing required fields' });
+      return res.status(400).json({ success: false, message: 'Missing required fields' });
     }
 
     // Kiểm tra ngày hợp lệ
     if (new Date(startDate) >= new Date(endDate)) {
-      return res.status(400).json({ error: 'startDate must be before endDate' });
+      return res.status(400).json({ success: false, message: 'startDate must be before endDate' });
     }
 
     // Kiểm tra sản phẩm tồn tại nếu có productIds
     if (productIds && productIds.length > 0) {
       const products = await Product.find({ _id: { $in: productIds } });
       if (products.length !== productIds.length) {
-        return res.status(400).json({ error: 'One or more products not found' });
+        return res.status(400).json({ success: false, message: 'One or more products not found' });
       }
     }
 
@@ -45,10 +47,10 @@ const createPromotion = async (req, res) => {
       );
     }
 
-    res.status(201).json(promotion);
+    res.status(201).json({ success: true, data: promotion });
   } catch (error) {
     console.error('Error in createPromotion:', error);
-    res.status(400).json({ error: error.message });
+    res.status(400).json({ success: false, message: error.message });
   }
 };
 
@@ -57,10 +59,10 @@ const getAvailableProducts = async (req, res) => {
   try {
     // Lấy danh sách sản phẩm chưa có khuyến mãi hoặc có thể áp dụng thêm
     const products = await Product.find({});
-    res.json(products);
+    res.status(200).json({ success: true, data: products });
   } catch (error) {
     console.error('Error in getAvailableProducts:', error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 
@@ -68,13 +70,13 @@ const getAvailableProducts = async (req, res) => {
 const getPromotions = async (req, res) => {
   try {
     const promotions = await Promotion.find()
-      .populate('products', 'name price') // Lấy thêm thông tin sản phẩm
+      .populate('products', 'productName price') // Lấy thêm thông tin sản phẩm
       .sort({ createdAt: -1 });
     console.log('Fetched promotions:', promotions);
-    res.json(promotions);
+    res.status(200).json({ success: true, data: promotions });
   } catch (error) {
     console.error('Error in getPromotions:', error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 
@@ -82,15 +84,15 @@ const getPromotions = async (req, res) => {
 const getPromotionById = async (req, res) => {
   try {
     const promotion = await Promotion.findById(req.params.id)
-      .populate('products', 'name price'); // Lấy thêm thông tin sản phẩm
+      .populate('products', 'productName price'); // Lấy thêm thông tin sản phẩm
     if (!promotion) {
-      return res.status(404).json({ error: 'Promotion not found' });
+      return res.status(404).json({ success: false, message: 'Promotion not found' });
     }
     console.log('Fetched promotion by ID:', promotion);
-    res.json(promotion);
+    res.status(200).json({ success: true, data: promotion });
   } catch (error) {
     console.error('Error in getPromotionById:', error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 
@@ -101,16 +103,19 @@ const updatePromotion = async (req, res) => {
     const promotion = await Promotion.findById(req.params.id);
 
     if (!promotion) {
-      return res.status(404).json({ error: 'Promotion not found' });
+      return res.status(404).json({ success: false, message: 'Promotion not found' });
     }
 
     // Kiểm tra sản phẩm tồn tại nếu có productIds
     if (productIds && productIds.length > 0) {
       const products = await Product.find({ _id: { $in: productIds } });
       if (products.length !== productIds.length) {
-        return res.status(400).json({ error: 'One or more products not found' });
+        return res.status(400).json({ success: false, message: 'One or more products not found' });
       }
     }
+
+    // Lưu danh sách sản phẩm cũ để so sánh
+    const oldProductIds = promotion.products.map(id => id.toString());
 
     // Cập nhật các trường
     promotion.code = code || promotion.code;
@@ -123,23 +128,39 @@ const updatePromotion = async (req, res) => {
 
     // Kiểm tra ngày hợp lệ nếu có cập nhật
     if (new Date(promotion.startDate) >= new Date(promotion.endDate)) {
-      return res.status(400).json({ error: 'startDate must be before endDate' });
+      return res.status(400).json({ success: false, message: 'startDate must be before endDate' });
     }
 
     await promotion.save({ writeConcern: { w: "majority", j: true } });
 
     // Cập nhật lại danh sách sản phẩm có khuyến mãi
     if (productIds && productIds.length > 0) {
+      // Xóa promotionID khỏi các sản phẩm không còn trong danh sách
+      const removedProductIds = oldProductIds.filter(id => !productIds.includes(id));
+      if (removedProductIds.length > 0) {
+        await Product.updateMany(
+          { _id: { $in: removedProductIds } },
+          { $pull: { promotionIDs: promotion._id } }
+        );
+      }
+
+      // Thêm promotionID vào các sản phẩm mới
       await Product.updateMany(
         { _id: { $in: productIds } },
         { $addToSet: { promotionIDs: promotion._id } }
       );
+    } else {
+      // Nếu không còn sản phẩm nào, xóa promotionID khỏi tất cả sản phẩm cũ
+      await Product.updateMany(
+        { _id: { $in: oldProductIds } },
+        { $pull: { promotionIDs: promotion._id } }
+      );
     }
 
-    res.json(promotion);
+    res.status(200).json({ success: true, data: promotion });
   } catch (error) {
     console.error('Error in updatePromotion:', error);
-    res.status(400).json({ error: error.message });
+    res.status(400).json({ success: false, message: error.message });
   }
 };
 
@@ -150,7 +171,7 @@ const addProductsToPromotion = async (req, res) => {
     const promotion = await Promotion.findById(req.params.id);
 
     if (!promotion) {
-      return res.status(404).json({ error: 'Promotion not found' });
+      return res.status(404).json({ success: false, message: 'Promotion not found' });
     }
 
     // Đảm bảo rằng trường `products` luôn là một mảng
@@ -159,7 +180,7 @@ const addProductsToPromotion = async (req, res) => {
     // Kiểm tra sản phẩm tồn tại
     const products = await Product.find({ _id: { $in: productIds } });
     if (products.length !== productIds.length) {
-      return res.status(400).json({ error: 'One or more products not found' });
+      return res.status(400).json({ success: false, message: 'One or more products not found' });
     }
 
     // Thêm sản phẩm vào khuyến mãi (loại bỏ trùng lặp)
@@ -167,7 +188,7 @@ const addProductsToPromotion = async (req, res) => {
     const newProducts = productIds.filter(id => !existingProducts.includes(id));
 
     if (newProducts.length === 0) {
-      return res.status(400).json({ error: 'All products already in promotion' });
+      return res.status(400).json({ success: false, message: 'All products already in promotion' });
     }
 
     promotion.products = [...promotion.products, ...newProducts];
@@ -179,10 +200,10 @@ const addProductsToPromotion = async (req, res) => {
       { $addToSet: { promotionIDs: promotion._id } }
     );
 
-    res.json(promotion);
+    res.status(200).json({ success: true, data: promotion });
   } catch (error) {
     console.error('Error in addProductsToPromotion:', error);
-    res.status(400).json({ error: error.message });
+    res.status(400).json({ success: false, message: error.message });
   }
 };
 
@@ -193,7 +214,7 @@ const removeProductsFromPromotion = async (req, res) => {
     const promotion = await Promotion.findById(req.params.id);
 
     if (!promotion) {
-      return res.status(404).json({ error: 'Promotion not found' });
+      return res.status(404).json({ success: false, message: 'Promotion not found' });
     }
 
     // Kiểm tra nếu products là undefined, nếu có thì khởi tạo nó thành mảng rỗng
@@ -214,27 +235,37 @@ const removeProductsFromPromotion = async (req, res) => {
       { $pull: { promotionIDs: promotion._id } }
     );
 
-    res.json(promotion);
+    res.status(200).json({ success: true, data: promotion });
   } catch (error) {
     console.error('Error in removeProductsFromPromotion:', error);
-    res.status(400).json({ error: error.message });
+    res.status(400).json({ success: false, message: error.message });
   }
 };
 
 // Xóa khuyến mãi
 const deletePromotion = async (req, res) => {
   try {
-    const promotion = await Promotion.findByIdAndDelete(req.params.id, {
+    const promotion = await Promotion.findById(req.params.id);
+    if (!promotion) {
+      return res.status(404).json({ success: false, message: 'Promotion not found' });
+    }
+
+    // Xóa promotionID khỏi các sản phẩm liên quan
+    if (promotion.products && promotion.products.length > 0) {
+      await Product.updateMany(
+        { _id: { $in: promotion.products } },
+        { $pull: { promotionIDs: promotion._id } }
+      );
+    }
+
+    await Promotion.findByIdAndDelete(req.params.id, {
       writeConcern: { w: "majority", j: true }
     });
-    if (!promotion) {
-      return res.status(404).json({ error: 'Promotion not found' });
-    }
     console.log('Deleted promotion:', promotion);
-    res.status(204).send(); // 204 No Content
+    res.status(200).json({ success: true, message: 'Promotion deleted successfully' });
   } catch (error) {
     console.error('Error in deletePromotion:', error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 

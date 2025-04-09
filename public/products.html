@@ -11,7 +11,7 @@
   <header>
     <nav id="navbar">
       <div class="logo-container">
-        <img src="/images/logo.png" alt="Fashion Shop Logo">
+        <img src="/uploads/logo.png" alt="Fashion Shop Logo">
         <span>Fashion Shop</span>
       </div>
       <div class="nav-links">
@@ -20,6 +20,7 @@
         <a href="/categories.html">Thể Loại</a>
         <a href="/cart.html">Giỏ Hàng</a>
         <a href="/orders.html">Đơn Hàng</a>
+        <a href="/promotions.html">Khuyến Mãi</a>
         <a href="/login.html" id="loginLink">Đăng Nhập</a>
         <a href="/register.html" id="registerLink">Đăng Ký</a>
         <div id="userInfo" style="display: none;">
@@ -36,7 +37,6 @@
     <div id="product-list" class="grid"></div>
   </main>
 
-  <!-- Modal để thêm/sửa sản phẩm -->
   <div id="modal" class="modal">
     <div class="modal-content">
       <span class="close" onclick="closeModal()">×</span>
@@ -65,25 +65,185 @@
         const usernameDisplay = document.getElementById('usernameDisplay');
 
         if (data.success) {
+          window.isLoggedIn = true;
+          window.userRole = data.data.role;
+          window.currentUser = data.data;
           loginLink.style.display = 'none';
           registerLink.style.display = 'none';
           userInfo.style.display = 'flex';
           usernameDisplay.textContent = `Chào, ${data.data.username}`;
-          window.isLoggedIn = true;
-          window.userRole = data.data.role;
         } else {
           window.isLoggedIn = false;
           window.userRole = null;
+          window.currentUser = null;
         }
-        // Gọi hàm loadProducts từ main.js
-        loadProducts();
+        loadProducts(); // Tải danh sách sản phẩm
       } catch (error) {
         console.error('Error checking auth:', error);
         window.isLoggedIn = false;
         window.userRole = null;
+        window.currentUser = null;
         loadProducts();
       }
     });
+
+    // Hàm mở modal để thêm/sửa sản phẩm
+    async function openModal(mode, productId = null) {
+      const modal = document.getElementById('modal');
+      const modalBody = document.getElementById('modal-body');
+      modal.style.display = 'block';
+
+      if (mode === 'addProduct') {
+        // Lấy danh sách danh mục từ API
+        let categories = [];
+        try {
+          const response = await fetch('/categories', {
+            method: 'GET',
+            credentials: 'include',
+          });
+          categories = await response.json();
+        } catch (error) {
+          console.error('Error fetching categories:', error);
+          categories = [];
+        }
+
+        modalBody.innerHTML = `
+          <h2>Thêm Sản Phẩm</h2>
+          <form id="productForm" enctype="multipart/form-data">
+            <label for="productName">Tên Sản Phẩm:</label>
+            <input type="text" id="productName" name="productName" required />
+            
+            <label for="price">Giá:</label>
+            <input type="number" id="price" name="price" min="0" required />
+            
+            <label for="quantity">Số lượng:</label>
+            <input type="number" id="quantity" name="quantity" min="0" required />
+            
+            <label for="image">Hình Ảnh:</label>
+            <input type="file" id="image" name="image" accept="image/*" required />
+            
+            <label for="category">Danh Mục:</label>
+            <select id="category" name="category" required>
+              <option value="">Chọn danh mục</option>
+              ${categories.length > 0 ? categories.map(category => `
+                <option value="${category._id}">${category.categoryName}</option>
+              `).join('') : '<option value="">Không có danh mục</option>'}
+            </select>
+            
+            <label for="description">Mô Tả:</label>
+            <textarea id="description" name="description"></textarea>
+            
+            <button type="submit" class="btn">Thêm</button>
+          </form>
+        `;
+
+        const form = document.getElementById('productForm');
+        form.addEventListener('submit', async (e) => {
+          e.preventDefault();
+          const formData = new FormData(form);
+          // Không cần thêm các trường riêng lẻ vì FormData đã bao gồm tất cả, kể cả file
+
+          try {
+            const response = await fetch('/products', {
+              method: 'POST',
+              body: formData,
+              credentials: 'include',
+            });
+            const result = await response.json();
+            if (result.success) {
+              closeModal();
+              loadProducts();
+            } else {
+              alert('Error adding product: ' + result.message);
+            }
+          } catch (error) {
+            alert('Error adding product: ' + error.message);
+          }
+        });
+      } else if (mode === 'editProduct') {
+        // Logic sửa sản phẩm
+        fetch(`/products/${productId}`, { credentials: 'include' })
+          .then(res => res.json())
+          .then(data => {
+            if (data.success) {
+              const product = data.data;
+              // Lấy danh sách danh mục để hiển thị trong dropdown
+              fetch('/categories', { credentials: 'include' })
+                .then(res => res.json())
+                .then(categories => {
+                  modalBody.innerHTML = `
+                    <h2>Sửa Sản Phẩm</h2>
+                    <form id="productForm" enctype="multipart/form-data">
+                      <label for="productName">Tên Sản Phẩm:</label>
+                      <input type="text" id="productName" name="productName" value="${product.productName}" required />
+                      
+                      <label for="price">Giá:</label>
+                      <input type="number" id="price" name="price" value="${product.price}" min="0" required />
+                      
+                      <label for="quantity">Số lượng:</label>
+                      <input type="number" id="quantity" name="quantity" value="${product.quantity}" min="0" required />
+                      
+                      <label for="image">Hình Ảnh (để trống nếu không thay đổi):</label>
+                      <input type="file" id="image" name="image" accept="image/*" />
+                      <p>Hình ảnh hiện tại: <img src="${product.image}" alt="${product.productName}" style="max-width: 100px;" /></p>
+                      
+                      <label for="category">Danh Mục:</label>
+                      <select id="category" name="category" required>
+                        <option value="">Chọn danh mục</option>
+                        ${categories.length > 0 ? categories.map(category => `
+                          <option value="${category._id}" ${category._id === product.category ? 'selected' : ''}>${category.categoryName}</option>
+                        `).join('') : '<option value="">Không có danh mục</option>'}
+                      </select>
+                      
+                      <label for="description">Mô Tả:</label>
+                      <textarea id="description" name="description">${product.description || ''}</textarea>
+                      
+                      <button type="submit" class="btn">Cập Nhật</button>
+                    </form>
+                  `;
+
+                  const form = document.getElementById('productForm');
+                  form.addEventListener('submit', async (e) => {
+                    e.preventDefault();
+                    const formData = new FormData(form);
+
+                    try {
+                      const response = await fetch(`/products/${productId}`, {
+                        method: 'PUT',
+                        body: formData,
+                        credentials: 'include',
+                      });
+                      const result = await response.json();
+                      if (result.success) {
+                        closeModal();
+                        loadProducts();
+                      } else {
+                        alert('Error updating product: ' + result.message);
+                      }
+                    } catch (error) {
+                      alert('Error updating product: ' + error.message);
+                    }
+                  });
+                })
+                .catch(error => {
+                  console.error('Error fetching categories:', error);
+                  alert('Error loading categories for edit form');
+                });
+            } else {
+              alert('Error loading product: ' + data.message);
+            }
+          })
+          .catch(error => {
+            console.error('Error fetching product:', error);
+            alert('Error loading product');
+          });
+      }
+    }
+
+    // Hàm đóng modal
+    function closeModal() {
+      document.getElementById('modal').style.display = 'none';
+    }
 
     // Hàm đăng xuất
     async function logout() {

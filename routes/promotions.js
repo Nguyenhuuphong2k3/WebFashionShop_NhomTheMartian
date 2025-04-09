@@ -9,7 +9,7 @@ const {
   getAvailableProducts,
   addProductsToPromotion,
   removeProductsFromPromotion
-} = require('../controllers/promotions');
+} = require('../controllers/promotionsController');
 
 // Lấy danh sách sản phẩm để thêm vào khuyến mãi
 router.get('/available-products', getAvailableProducts);

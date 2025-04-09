@@ -2,6 +2,7 @@
 // Kiểm tra trạng thái đăng nhập
 let isLoggedIn = false;
 let userRole = null;
+let currentUser = null; // Lưu thông tin user hiện tại
 
 // Tải danh sách sản phẩm
 function loadProducts() {
@@ -14,6 +15,7 @@ function loadProducts() {
         if (data.success && data.data.length > 0) {
           data.data.forEach(p => {
             const div = document.createElement("div");
+            div.className = 'product-item';
             div.innerHTML = `
               <img src="${p.imgURL || 'https://via.placeholder.com/150'}" alt="${p.productName}" />
               <h4>${p.productName}</h4>
@@ -22,6 +24,7 @@ function loadProducts() {
               <p>Danh mục: ${p.categoryID.categoryName}</p>
               <p>Mô tả: ${p.description || 'Không có'}</p>
               <button class="add-to-cart-btn" onclick="addToCart('${p._id}')">Thêm vào giỏ hàng</button>
+              <button class="view-details-btn" onclick="viewProductDetails('${p._id}')">Xem chi tiết</button>
               ${isLoggedIn && userRole === 'admin' ? `
                 <button class="action-btn edit-btn" onclick="openModal('editProduct', '${p._id}')">Sửa</button>
                 <button class="action-btn delete-btn" onclick="deleteProduct('${p._id}')">Xóa</button>
@@ -37,6 +40,133 @@ function loadProducts() {
         console.error('Error fetching products:', error);
         document.getElementById("product-list").innerHTML = '<p>Lỗi khi tải sản phẩm!</p>';
       });
+  }
+}
+
+// Xem chi tiết sản phẩm (bao gồm khuyến mãi và đánh giá)
+async function viewProductDetails(productId) {
+  try {
+    // Lấy thông tin sản phẩm
+    const productResponse = await fetch(`/products/${productId}`, { credentials: 'include' });
+    const productData = await productResponse.json();
+
+    // Lấy danh sách khuyến mãi của sản phẩm
+    const promotionsResponse = await fetch('/promotions', { credentials: 'include' });
+    const promotionsData = await promotionsResponse.json();
+
+    // Lấy danh sách đánh giá
+    const reviewsResponse = await fetch(`/reviews?productID=${productId}`, { credentials: 'include' });
+    const reviewsData = await reviewsResponse.json();
+
+    const modal = document.getElementById('modal');
+    const modalBody = document.getElementById('modal-body');
+
+    if (productData.success) {
+      const product = productData.data;
+      const currentDate = new Date();
+
+      // Lọc các khuyến mãi đang hoạt động và áp dụng cho sản phẩm
+      const activePromotions = promotionsData.data?.filter(promo => 
+        promo.isActive && 
+        new Date(promo.startDate) <= currentDate && 
+        new Date(promo.endDate) >= currentDate &&
+        promo.products.some(p => p._id.toString() === productId)
+      ) || [];
+
+      // Tính giá sau khi áp dụng khuyến mãi (nếu có)
+      let discountedPrice = product.price;
+      let appliedPromotion = null;
+      if (activePromotions.length > 0) {
+        const bestPromotion = activePromotions.reduce((best, promo) => 
+          promo.discount > best.discount ? promo : best
+        );
+        discountedPrice = product.price * (1 - bestPromotion.discount / 100);
+        appliedPromotion = bestPromotion;
+      }
+
+      modalBody.innerHTML = `
+        <h2>Chi tiết sản phẩm</h2>
+        <img src="${product.imgURL || 'https://via.placeholder.com/150'}" alt="${product.productName}" style="max-width: 100%;" />
+        <h4>${product.productName}</h4>
+        <p>Giá gốc: ${product.price}₫</p>
+        ${appliedPromotion ? `
+          <p>Giá sau khuyến mãi: ${discountedPrice.toFixed(0)}₫ (Giảm ${appliedPromotion.discount}% - Mã: ${appliedPromotion.code})</p>
+        ` : '<p>Không có khuyến mãi áp dụng</p>'}
+        <p>Số lượng: ${product.quantity}</p>
+        <p>Danh mục: ${product.categoryID.categoryName}</p>
+        <p>Mô tả: ${product.description || 'Không có'}</p>
+        <button class="add-to-cart-btn" onclick="addToCart('${product._id}')">Thêm vào giỏ hàng</button>
+
+        <!-- Phần đánh giá -->
+        <h3>Đánh giá sản phẩm</h3>
+        <div id="reviews-list">
+          ${reviewsData.success && reviewsData.data.length > 0 ? reviewsData.data.map(review => `
+            <div class="review-item">
+              <p><strong>${review.userName}</strong> (${new Date(review.createdAt).toLocaleDateString()}): ${review.rating}/5 ★</p>
+              <p>${review.comment || 'Không có bình luận'}</p>
+            </div>
+          `).join('') : '<p>Chưa có đánh giá nào</p>'}
+        </div>
+
+        <!-- Form thêm đánh giá -->
+        ${isLoggedIn ? `
+          <h4>Thêm đánh giá của bạn</h4>
+          <form id="reviewForm">
+            <label for="rating">Điểm đánh giá (1-5):</label>
+            <input type="number" id="rating" name="rating" min="1" max="5" required>
+            <label for="comment">Bình luận:</label>
+            <textarea id="comment" name="comment" placeholder="Nhập bình luận của bạn"></textarea>
+            <input type="hidden" name="productID" value="${product._id}">
+            <button type="submit">Gửi đánh giá</button>
+          </form>
+          <div id="reviewMsg" class="text-center"></div>
+        ` : '<p>Vui lòng đăng nhập để thêm đánh giá</p>'}
+      `;
+
+      modal.style.display = 'block';
+
+      // Xử lý form thêm đánh giá
+      if (isLoggedIn) {
+        document.getElementById('reviewForm').addEventListener('submit', async (e) => {
+          e.preventDefault();
+          const formData = new FormData(e.target);
+          const reviewData = {
+            productID: formData.get('productID'),
+            userName: currentUser.username, // Lấy username từ thông tin user
+            rating: parseInt(formData.get('rating')),
+            comment: formData.get('comment')
+          };
+
+          try {
+            const response = await fetch('/reviews', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              credentials: 'include',
+              body: JSON.stringify(reviewData)
+            });
+            const data = await response.json();
+
+            const msg = document.getElementById('reviewMsg');
+            if (data.success) {
+              msg.innerHTML = `<div class="alert alert-success">Thêm đánh giá thành công!</div>`;
+              setTimeout(() => {
+                viewProductDetails(productId); // Tải lại chi tiết sản phẩm
+              }, 1500);
+            } else {
+              msg.innerHTML = `<div class="alert alert-danger">Lỗi: ${data.message}</div>`;
+            }
+          } catch (error) {
+            console.error('Error adding review:', error);
+            document.getElementById('reviewMsg').innerHTML = `<div class="alert alert-danger">Lỗi khi thêm đánh giá!</div>`;
+          }
+        });
+      }
+    } else {
+      showToast('Lỗi khi tải sản phẩm: ' + productData.message, 'error');
+    }
+  } catch (error) {
+    console.error('Error viewing product details:', error);
+    showToast('Lỗi khi tải chi tiết sản phẩm!', 'error');
   }
 }
 

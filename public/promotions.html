@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Khuyến Mãi - Fashion Shop</title>
+  <link rel="stylesheet" href="/css/style.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
+</head>
+<body>
+  <header>
+    <nav id="navbar">
+      <div class="logo-container">
+        <img src="/uploads/logo.png" alt="Fashion Shop Logo">
+        <span>Fashion Shop</span>
+      </div>
+      <div class="nav-links">
+        <a href="/">Trang Chủ</a>
+        <a href="/products.html">Sản Phẩm</a>
+        <a href="/categories.html">Thể Loại</a>
+        <a href="/cart.html">Giỏ Hàng</a>
+        <a href="/orders.html">Đơn Hàng</a>
+        <a href="/promotions.html">Khuyến Mãi</a>
+        <a href="/login.html" id="loginLink">Đăng Nhập</a>
+        <a href="/register.html" id="registerLink">Đăng Ký</a>
+        <div id="userInfo" style="display: none;">
+          <span id="usernameDisplay"></span>
+          <button class="action-btn" onclick="logout()">Đăng Xuất</button>
+        </div>
+      </div>
+    </nav>
+  </header>
+
+  <main class="container">
+    <h2>Danh sách khuyến mãi</h2>
+    <!-- Luôn hiển thị nút Thêm Khuyến Mãi, không cần kiểm tra vai trò admin -->
+    <button class="btn" onclick="openPromotionModal('addPromotion')">Thêm Khuyến Mãi</button>
+    <div id="promotion-list" class="promotions-container"></div>
+  </main>
+
+  <!-- Modal để thêm/sửa khuyến mãi -->
+  <div id="modal" class="modal">
+    <div class="modal-content">
+      <span class="close" onclick="closeModal()">×</span>
+      <div id="modal-body"></div>
+    </div>
+  </div>
+
+  <footer>
+    <p>© 2025 - Fashion Shop</p>
+  </footer>
+
+  <script src="/js/main.js"></script>
+  <script>
+    // Kiểm tra trạng thái đăng nhập khi tải trang
+    document.addEventListener('DOMContentLoaded', async () => {
+      try {
+        const response = await fetch('/auth/me', {
+          method: 'GET',
+          credentials: 'include',
+        });
+        const data = await response.json();
+
+        const loginLink = document.getElementById('loginLink');
+        const registerLink = document.getElementById('registerLink');
+        const userInfo = document.getElementById('userInfo');
+        const usernameDisplay = document.getElementById('usernameDisplay');
+
+        if (data.success) {
+          window.isLoggedIn = true;
+          window.userRole = data.data.role;
+          window.currentUser = data.data;
+          loginLink.style.display = 'none';
+          registerLink.style.display = 'none';
+          userInfo.style.display = 'flex';
+          usernameDisplay.textContent = `Chào, ${data.data.username}`;
+        } else {
+          window.isLoggedIn = false;
+          window.userRole = null;
+          window.currentUser = null;
+        }
+        loadPromotions(); // Tải danh sách khuyến mãi
+      } catch (error) {
+        console.error('Error checking auth:', error);
+        window.isLoggedIn = false;
+        window.userRole = null;
+        window.currentUser = null;
+        loadPromotions();
+      }
+    });
+
+    // Tải danh sách khuyến mãi
+    function loadPromotions() {
+      const container = document.getElementById('promotion-list');
+      fetch('/promotions', { credentials: 'include' })
+        .then(res => res.json())
+        .then(data => {
+          container.innerHTML = ''; // Xóa nội dung cũ
+          if (data.success && data.data.length > 0) {
+            data.data.forEach(promo => {
+              const div = document.createElement('div');
+              div.className = 'promotion-item';
+              div.innerHTML = `
+                <div>
+                  <h4>${promo.code}</h4>
+                  <p>Giảm giá: ${promo.discount}%</p>
+                  <p>Thời gian: ${new Date(promo.startDate).toLocaleDateString()} - ${new Date(promo.endDate).toLocaleDateString()}</p>
+                  <p>Mô tả: ${promo.description || 'Không có'}</p>
+                  <div class="promotion-products">
+                    <h5>Sản phẩm áp dụng:</h5>
+                    <ul>
+                      ${promo.products.length > 0 ? promo.products.map(p => `
+                        <li>${p.productName} - ${p.price}₫</li>
+                      `).join('') : '<li>Chưa có sản phẩm</li>'}
+                    </ul>
+                  </div>
+                </div>
+                <div class="promotion-status ${promo.isActive ? 'active' : 'inactive'}">
+                  ${promo.isActive ? 'Đang hoạt động' : 'Ngừng hoạt động'}
+                </div>
+                <div>
+                  <button class="action-btn edit-btn" onclick="openPromotionModal('editPromotion', '${promo._id}')">Sửa</button>
+                  <button class="action-btn delete-btn" onclick="deletePromotion('${promo._id}')">Xóa</button>
+                  <button class="action-btn add-product-btn" onclick="openAddProductModal('${promo._id}')">Thêm sản phẩm</button>
+                </div>
+              `;
+              container.appendChild(div);
+            });
+          } else {
+            container.innerHTML = '<p>Không có khuyến mãi nào!</p>';
+          }
+        })
+        .catch(error => {
+          console.error('Error fetching promotions:', error);
+          container.innerHTML = '<p>Lỗi khi tải khuyến mãi!</p>';
+        });
+    }
+
+    // Mở modal để thêm/sửa khuyến mãi
+    function openPromotionModal(type, id = null) {
+      const modal = document.getElementById('modal');
+      const modalBody = document.getElementById('modal-body');
+
+      modalBody.innerHTML = `
+        <h2>${type === 'addPromotion' ? 'Thêm Khuyến Mãi' : 'Sửa Khuyến Mãi'}</h2>
+        <form id="promotionForm">
+          <label for="code">Mã khuyến mãi:</label>
+          <input type="text" id="code" name="code" required>
+          
+          <label for="discount">Giảm giá (%):</label>
+          <input type="number" id="discount" name="discount" min="0" max="100" required>
+          
+          <label for="startDate">Ngày bắt đầu:</label>
+          <input type="date" id="startDate" name="startDate" required>
+          
+          <label for="endDate">Ngày kết thúc:</label>
+          <input type="date" id="endDate" name="endDate" required>
+          
+          <label for="description">Mô tả:</label>
+          <textarea id="description" name="description"></textarea>
+          
+          <label for="isActive">Trạng thái:</label>
+          <select id="isActive" name="isActive">
+            <option value="true">Hoạt động</option>
+            <option value="false">Ngừng hoạt động</option>
+          </select>
+          
+          <button type="submit">${type === 'addPromotion' ? 'Thêm' : 'Cập nhật'}</button>
+        </form>
+        <div id="formMsg" class="text-center"></div>
+        <div class="loading" id="formLoading"></div>
+      `;
+
+      if (type === 'editPromotion') {
+        fetch(`/promotions/${id}`, { credentials: 'include' })
+          .then(res => res.json())
+          .then(data => {
+            if (data.success) {
+              const promo = data.data;
+              document.getElementById('code').value = promo.code;
+              document.getElementById('discount').value = promo.discount;
+              document.getElementById('startDate').value = promo.startDate.split('T')[0];
+              document.getElementById('endDate').value = promo.endDate.split('T')[0];
+              document.getElementById('description').value = promo.description || '';
+              document.getElementById('isActive').value = promo.isActive.toString();
+            } else {
+              showToast('Lỗi khi tải khuyến mãi: ' + data.message, 'error');
+            }
+          })
+          .catch(error => {
+            console.error('Error fetching promotion:', error);
+            showToast('Lỗi khi tải khuyến mãi!', 'error');
+          });
+      }
+
+      document.getElementById('promotionForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const formData = new FormData(e.target);
+        const promotionData = Object.fromEntries(formData);
+        promotionData.isActive = promotionData.isActive === 'true';
+        const msg = document.getElementById('formMsg');
+        const loading = document.getElementById('formLoading');
+
+        msg.innerHTML = '';
+        loading.style.display = 'block';
+
+        try {
+          const url = type === 'addPromotion' ? '/promotions' : `/promotions/${id}`;
+          const method = type === 'addPromotion' ? 'POST' : 'PUT';
+          const response = await fetch(url, {
+            method,
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify(promotionData),
+          });
+          const data = await response.json();
+
+          loading.style.display = 'none';
+          if (data.success) {
+            msg.innerHTML = `<div class="alert alert-success">${type === 'addPromotion' ? 'Thêm' : 'Cập nhật'} khuyến mãi thành công!</div>`;
+            setTimeout(() => {
+              closeModal();
+              loadPromotions();
+            }, 1500);
+          } else {
+            msg.innerHTML = `<div class="alert alert-danger">Lỗi: ${data.message}</div>`;
+          }
+        } catch (error) {
+          loading.style.display = 'none';
+          msg.innerHTML = `<div class="alert alert-danger">Lỗi: ${error.message}</div>`;
+        }
+      });
+
+      modal.style.display = 'block';
+    }
+
+    // Mở modal để thêm sản phẩm vào khuyến mãi
+    function openAddProductModal(promotionId) {
+      const modal = document.getElementById('modal');
+      const modalBody = document.getElementById('modal-body');
+
+      fetch('/promotions/available-products', { credentials: 'include' })
+        .then(res => res.json())
+        .then(data => {
+          modalBody.innerHTML = `
+            <h2>Thêm sản phẩm vào khuyến mãi</h2>
+            <form id="promotionProductForm">
+              <label for="productIds">Chọn sản phẩm:</label>
+              <select id="productIds" name="productIds" multiple required>
+                ${data.success && data.data.length > 0 ? data.data.map(p => `
+                  <option value="${p._id}">${p.productName} - ${p.price}₫</option>
+                `).join('') : '<option value="">Không có sản phẩm</option>'}
+              </select>
+              <button type="submit">Thêm sản phẩm</button>
+            </form>
+            <div id="formMsg" class="text-center"></div>
+            <div class="loading" id="formLoading"></div>
+          `;
+
+          document.getElementById('promotionProductForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            const productIds = Array.from(formData.getAll('productIds'));
+            const msg = document.getElementById('formMsg');
+            const loading = document.getElementById('formLoading');
+
+            msg.innerHTML = '';
+            loading.style.display = 'block';
+
+            try {
+              const response = await fetch(`/promotions/${promotionId}/add-products`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({ productIds }),
+              });
+              const data = await response.json();
+
+              loading.style.display = 'none';
+              if (data.success) {
+                msg.innerHTML = `<div class="alert alert-success">Thêm sản phẩm thành công!</div>`;
+                setTimeout(() => {
+                  closeModal();
+                  loadPromotions();
+                }, 1500);
+              } else {
+                msg.innerHTML = `<div class="alert alert-danger">Lỗi: ${data.message}</div>`;
+              }
+            } catch (error) {
+              loading.style.display = 'none';
+              msg.innerHTML = `<div class="alert alert-danger">Lỗi: ${error.message}</div>`;
+            }
+          });
+
+          modal.style.display = 'block';
+        })
+        .catch(error => {
+          console.error('Error fetching products:', error);
+          showToast('Lỗi khi tải danh sách sản phẩm!', 'error');
+        });
+    }
+
+    // Xóa khuyến mãi
+    function deletePromotion(id) {
+      if (confirm('Bạn có chắc muốn xóa khuyến mãi này?')) {
+        fetch(`/promotions/${id}`, {
+          method: 'DELETE',
+          credentials: 'include',
+        })
+          .then(res => res.json())
+          .then(data => {
+            if (data.success) {
+              showToast('Xóa khuyến mãi thành công!', 'success');
+              loadPromotions();
+            } else {
+              showToast('Lỗi: ' + data.message, 'error');
+            }
+          })
+          .catch(error => {
+            console.error('Error deleting promotion:', error);
+            showToast('Lỗi khi xóa khuyến mãi!', 'error');
+          });
+      }
+    }
+
+    // Hàm đóng modal
+    function closeModal() {
+      document.getElementById('modal').style.display = 'none';
+    }
+
+    // Hàm đăng xuất
+    async function logout() {
+      try {
+        await fetch('/auth/logout', {
+          method: 'POST',
+          credentials: 'include',
+        });
+        document.cookie = 'token=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/';
+        window.location.href = '/';
+      } catch (error) {
+        console.error('Error logging out:', error);
+        window.location.href = '/';
+      }
+    }
+  </script>
+</body>
+</html>

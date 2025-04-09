@@ -1,3 +1,4 @@
+// models/promotions.js
 const mongoose = require('mongoose');
 
 const promotionSchema = new mongoose.Schema({
@@ -7,6 +8,7 @@ const promotionSchema = new mongoose.Schema({
   endDate: { type: Date, required: true }, // Ngày kết thúc
   description: { type: String }, // Mô tả (không bắt buộc)
   isActive: { type: Boolean, default: true }, // Trạng thái (kích hoạt hay không)
+  products: [{ type: mongoose.Schema.Types.ObjectId, ref: 'product' }], // Danh sách sản phẩm áp dụng khuyến mãi
 }, { timestamps: true });
 
 module.exports = mongoose.model('Promotion', promotionSchema);
