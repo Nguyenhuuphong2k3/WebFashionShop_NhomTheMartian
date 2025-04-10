@@ -52,89 +52,94 @@
   <script>
     // Kiểm tra trạng thái đăng nhập khi tải trang
     document.addEventListener('DOMContentLoaded', async () => {
-      try {
-        const response = await fetch('/auth/me', {
-          method: 'GET',
-          credentials: 'include',
-        });
-        const data = await response.json();
-
-        const loginLink = document.getElementById('loginLink');
-        const registerLink = document.getElementById('registerLink');
-        const userInfo = document.getElementById('userInfo');
-        const usernameDisplay = document.getElementById('usernameDisplay');
-
-        if (data.success) {
-          loginLink.style.display = 'none';
-          registerLink.style.display = 'none';
-          userInfo.style.display = 'flex';
-          usernameDisplay.textContent = `Chào, ${data.data.username}`;
-          window.isLoggedIn = true;
-          window.currentUser = data.data;
-        } else {
-          window.isLoggedIn = false;
-          window.currentUser = null;
-        }
-        loadProducts();
-      } catch (error) {
-        console.error('Error checking auth:', error);
-        window.isLoggedIn = false;
-        window.currentUser = null;
-        loadProducts();
-      }
+  try {
+    const response = await fetch('/auth/me', {
+      method: 'GET',
+      credentials: 'include',
     });
+    const data = await response.json();
+
+    const loginLink = document.getElementById('loginLink');
+    const registerLink = document.getElementById('registerLink');
+    const userInfo = document.getElementById('userInfo');
+    const usernameDisplay = document.getElementById('usernameDisplay');
+
+    console.log('Auth response:', data); // Log để kiểm tra dữ liệu từ API /auth/me
+
+    if (data.success && data.data && data.data.username) {
+      loginLink.style.display = 'none';
+      registerLink.style.display = 'none';
+      userInfo.style.display = 'flex';
+      usernameDisplay.textContent = `Chào, ${data.data.username}`;
+      window.isLoggedIn = true;
+      window.currentUser = data.data;
+      console.log('window.currentUser set:', window.currentUser);
+    } else {
+      console.error('Failed to fetch user data or username missing:', data);
+      window.isLoggedIn = false;
+      window.currentUser = null;
+    }
+    loadProducts();
+  } catch (error) {
+    console.error('Error checking auth:', error);
+    window.isLoggedIn = false;
+    window.currentUser = null;
+    loadProducts();
+  }
+});
 
     // Hàm tải danh sách sản phẩm
     async function loadProducts() {
-      const container = document.getElementById('product-list');
-      try {
-        const response = await fetch('/products', {
-          method: 'GET',
-          credentials: 'include',
-        });
-        const data = await response.json();
+  const container = document.getElementById('product-list');
+  try {
+    const response = await fetch('/products', {
+      method: 'GET',
+      credentials: 'include',
+    });
+    const data = await response.json();
 
-        container.innerHTML = ''; // Xóa nội dung cũ
-        if (data.success && data.data.length > 0) {
-          data.data.forEach(product => {
-            const div = document.createElement('div');
-            div.className = 'product-item';
-            const imageSrc = product.imgURL && product.imgURL !== '' ? product.imgURL : '/images/default-image.jpg';
-            // Tính giá sau khuyến mãi (nếu có)
-            let discountedPrice = product.price;
-            let promotionText = '';
-            if (product.promotionIDs && product.promotionIDs.length > 0) {
-              const activePromotion = product.promotionIDs.find(promo => {
-                const now = new Date();
-                return now >= new Date(promo.startDate) && now <= new Date(promo.endDate);
-              });
-              if (activePromotion) {
-                discountedPrice = product.price * (1 - activePromotion.discountPercentage / 100);
-                promotionText = `(Giảm ${activePromotion.discountPercentage}% - ${activePromotion.promotionName})`;
-              }
-            }
-            div.innerHTML = `
-              <img src="${imageSrc}" alt="${product.productName}" style="max-width: 200px;" onerror="this.src='/images/default-image.jpg'" />
-              <h3>${product.productName}</h3>
-              <p>Giá: ${product.price}₫ ${promotionText}</p>
-              ${promotionText ? `<p>Giá sau khuyến mãi: ${discountedPrice.toFixed(0)}₫</p>` : ''}
-              <p>Số lượng: ${product.quantity}</p>
-              <p>Mô tả: ${product.description || 'Không có'}</p>
-              <button class="btn btn-success" onclick="addToCart('${product._id}')">Thêm vào giỏ hàng</button>
-              <button class="btn" onclick="openModal('viewProduct', '${product._id}')">Xem chi tiết</button>
-              <button class="btn" onclick="openModal('editProduct', '${product._id}')">Sửa</button>
-              <button class="btn btn-danger" onclick="deleteProduct('${product._id}')">Xóa</button>
-            `;
-            container.appendChild(div);
+    container.innerHTML = ''; // Xóa nội dung cũ
+    if (data.success && data.data.length > 0) {
+      data.data.forEach(product => {
+        const div = document.createElement('div');
+        div.className = 'product-item';
+        const imageSrc = product.imgURL && product.imgURL !== '' ? product.imgURL : '/images/default-image.jpg';
+        // Tính giá sau khuyến mãi (nếu có)
+        let discountedPrice = product.price;
+        let promotionText = '';
+        if (product.promotionIDs && product.promotionIDs.length > 0) {
+          const now = new Date();
+          // Tìm khuyến mãi đang hoạt động
+          const activePromotion = product.promotionIDs.find(promo => {
+            return promo.isActive && now >= new Date(promo.startDate) && now <= new Date(promo.endDate);
           });
-        } else {
-          container.innerHTML = '<p>Không có sản phẩm nào!</p>';
+          if (activePromotion) {
+            discountedPrice = product.price * (1 - activePromotion.discount / 100); // Sử dụng trường discount từ promotion
+            promotionText = `(Giảm ${activePromotion.discount}% - ${activePromotion.code})`;
+          }
         }
-      } catch (error) {
-        console.error('Error fetching products:', error);
-        container.innerHTML = '<p>Lỗi khi tải sản phẩm!</p>';
-      }
+        div.innerHTML = `
+          <img src="${imageSrc}" alt="${product.productName}" style="max-width: 200px;" onerror="this.src='/images/default-image.jpg'" />
+          <h3>${product.productName}</h3>
+          <p>Giá: ${product.price}₫ ${promotionText}</p>
+          ${promotionText ? `<p>Giá sau khuyến mãi: ${discountedPrice.toFixed(0)}₫</p>` : ''}
+          <p>Số lượng: ${product.quantity}</p>
+          <p>Mô tả: ${product.description || 'Không có'}</p>
+          <button class="btn btn-success" onclick="addToCart('${product._id}')">Thêm vào giỏ hàng</button>
+          <button class="btn" onclick="openModal('viewProduct', '${product._id}')">Xem chi tiết</button>
+          <button class="btn" onclick="openModal('editProduct', '${product._id}')">Sửa</button>
+          <button class="btn btn-danger" onclick="deleteProduct('${product._id}')">Xóa</button>
+        `;
+        container.appendChild(div);
+      });
+    } else {
+      container.innerHTML = '<p>Không có sản phẩm nào!</p>';
     }
+  } catch (error) {
+    console.error('Error fetching products:', error);
+    container.innerHTML = '<p>Lỗi khi tải sản phẩm!</p>';
+  }
+}
 
     // Hàm mở modal để thêm/sửa/xem chi tiết sản phẩm
     async function openModal(mode, productId = null) {
@@ -344,13 +349,13 @@
                     </div>
                     <h3>Đánh giá sản phẩm</h3>
                     <div id="reviews-list">
-                      ${reviews.length > 0 ? reviews.map(review => `
-                        <div class="review-item">
-                          <p><strong>${review.userID ? review.userID.username : 'Ẩn danh'}</strong> (${new Date(review.createdAt).toLocaleDateString()}): ${review.rating}/5 sao</p>
-                          <p>${review.comment}</p>
-                        </div>
-                      `).join('') : '<p>Chưa có đánh giá nào.</p>'}
-                    </div>
+  ${reviews.length > 0 ? reviews.map(review => `
+    <div class="review-item">
+      <p><strong>${review.userName}</strong> (${new Date(review.createdAt).toLocaleDateString()}): ${review.rating}/5 sao</p>
+      <p>${review.comment}</p>
+    </div>
+  `).join('') : '<p>Chưa có đánh giá nào.</p>'}
+</div>
                     ${window.isLoggedIn ? `
                       <h3>Thêm đánh giá của bạn</h3>
                       <form id="reviewForm">
@@ -363,33 +368,61 @@
                     ` : '<p>Vui lòng đăng nhập để đánh giá sản phẩm.</p>'}
                   `;
 
+                  
                   // Xử lý gửi đánh giá
-                  const reviewForm = document.getElementById('reviewForm');
-                  if (reviewForm) {
-                    reviewForm.addEventListener('submit', async (e) => {
-                      e.preventDefault();
-                      const rating = reviewForm.querySelector('#rating').value;
-                      const comment = reviewForm.querySelector('#comment').value;
+// Xử lý gửi đánh giá
+const reviewForm = document.getElementById('reviewForm');
+if (reviewForm) {
+  reviewForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
 
-                      try {
-                        const response = await fetch('/reviews', {
-                          method: 'POST',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ productID: productId, rating, comment }),
-                          credentials: 'include',
-                        });
-                        const result = await response.json();
-                        if (result.success) {
-                          alert('Đánh giá đã được gửi!');
-                          openModal('viewProduct', productId); // Tải lại modal để hiển thị đánh giá mới
-                        } else {
-                          alert('Error submitting review: ' + result.message);
-                        }
-                      } catch (error) {
-                        alert('Error submitting review: ' + error.message);
-                      }
-                    });
-                  }
+    // Kiểm tra đăng nhập và thông tin người dùng
+    if (!window.isLoggedIn || !window.currentUser || !window.currentUser.username) {
+      console.error('User not logged in or username missing:', window.currentUser);
+      alert('Vui lòng đăng nhập để gửi đánh giá!');
+      window.location.href = '/login.html';
+      return;
+    }
+
+    const rating = reviewForm.querySelector('#rating').value;
+    const comment = reviewForm.querySelector('#comment').value;
+
+    // Log để kiểm tra giá trị username trước khi gửi
+    console.log('Username before sending review:', window.currentUser.username);
+
+    // Chuẩn bị dữ liệu đánh giá theo schema reviews
+    const reviewData = {
+      productID: productId,
+      userName: window.currentUser.username, // Sử dụng username từ currentUser
+      rating: parseInt(rating),
+      comment: comment || ''
+    };
+
+    // Log dữ liệu gửi đi
+    console.log('Review data being sent:', reviewData);
+
+    try {
+      const response = await fetch('/reviews', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(reviewData),
+        credentials: 'include',
+      });
+      const result = await response.json();
+      if (result.success) {
+        console.log('Review submitted successfully:', result.data);
+        alert('Đánh giá đã được gửi!');
+        openModal('viewProduct', productId); // Tải lại modal để hiển thị đánh giá mới
+      } else {
+        console.error('Error submitting review:', result.message);
+        alert('Error submitting review: ' + result.message);
+      }
+    } catch (error) {
+      console.error('Error submitting review:', error);
+      alert('Error submitting review: ' + error.message);
+    }
+  });
+}
                 })
                 .catch(error => {
                   console.error('Error fetching reviews:', error);

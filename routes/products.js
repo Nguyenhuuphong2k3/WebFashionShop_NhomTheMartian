@@ -21,7 +21,10 @@ router.get('/', async (req, res) => {
   try {
     const queries = req.query;
     const filter = BuildQueries.QueryProduct(queries) || {};
-    const products = await productSchema.find(filter).populate('categoryID');
+    const products = await productSchema
+      .find(filter)
+      .populate('categoryID')
+      .populate('promotionIDs'); // Thêm populate cho promotionIDs
     res.status(200).send({ success: true, data: products });
   } catch (error) {
     res.status(500).send({ success: false, message: error.message });
@@ -31,7 +34,10 @@ router.get('/', async (req, res) => {
 // GET product by ID
 router.get('/:id', async (req, res) => {
   try {
-    const product = await productSchema.findById(req.params.id).populate('categoryID');
+    const product = await productSchema
+      .findById(req.params.id)
+      .populate('categoryID')
+      .populate('promotionIDs'); // Thêm populate cho promotionIDs
     if (!product) {
       return res.status(404).send({ success: false, message: 'Product not found' });
     }
